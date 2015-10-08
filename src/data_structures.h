@@ -14,138 +14,7 @@
 #include <string>
 #include <vector>
 #include <queue>
-
-template <class T>
-class array2d {
-  private:
-    typedef std::vector< std::vector<T> > arr2d;
-    arr2d data;
-  public:
-    ///Value corresponding the length of one edge of a square DEM cell
-    double cellsize;
-    ///Global grid location of lower left x-coordinate
-    double xllcorner;
-    ///Global grid location of lower left y-coordinate
-    double yllcorner;
-    ///Number of cells containing data (excludes NO_DATA cells)
-    long data_cells;
-    ///NO_DATA value. The cell does not contain data, should not be processed.
-    T no_data;
-
-    array2d ();
-    ///Creates array2d with no data, but invokes copyprops()
-    template<class U> array2d (const array2d<U> &copyfrom);
-    long width() const  {return data[0].size();}
-    long height() const {return data.size();}
-    ///Copys everything but the data from another array2d
-    template<class U> void copyprops (const array2d<U> &copyfrom);
-    ///Prints an estimate of the file size were the array printed in ASCII
-    long estimated_output_size();
-    ///Sets all the cells of an array2d to "val"
-    void init(T val);
-    ///Returns true if each cell of the array2d equals its counterpart in "other"
-    bool operator==(const array2d<T> &other) const;
-    ///Returns true if (x,y) is within the bounds of the array2d
-    inline bool in_grid(int x, int y) const
-      {return (x>=0 && y>=0 && x<width() && y<height());}
-    ///Returns true if (x,y) is not an edge cell
-    inline bool interior_grid(int x, int y) const
-      {return (x>=1 && y>=1 && x<width()-1 && y<height()-1);}
-    ///Returns true if (x,y) lies on the edge of the array2d
-    inline bool edge_grid(int x, int y) const
-      {return (x==0 || y==0 || x==width()-1 || y==height()-1);}
-    ///Returns a reference to (x,y)
-    T& operator()(int x, int y)
-      {return data[y][x];}
-    ///Returns a const reference to (x,y)
-    const T& operator()(int x, int y) const
-      {return data[y][x];}
-    ///Resizes the array2d. May or may not be destructive to existing data.
-    void resize(int width, int height);
-    ///Destroys all data in the array2d.
-    void clear() {data.clear();}
-};
-
-template <class T>
-array2d<T>::array2d(){
-  cellsize=-1;
-  xllcorner=-1;
-  yllcorner=-1;
-  data_cells=-1;
-  no_data=-1;
-}
-
-template <class T>
-void array2d<T>::resize(int width, int height){
-  fprintf(
-    stderr,
-    "\n\tApprox RAM requirement: %lluMB\n",
-    (unsigned long long)width * (unsigned long long)height *
-      (unsigned long long)sizeof(T) / 1024 / 1024
-  );
-  data.resize(height, std::vector<T> (width));
-}
-
-template<class T>
-template<class U>
-void array2d<T>::copyprops (const array2d<U> &copyfrom){
-  cellsize=copyfrom.cellsize;
-  xllcorner=copyfrom.xllcorner;
-  yllcorner=copyfrom.yllcorner;
-  data_cells=copyfrom.data_cells;
-  no_data=copyfrom.no_data;
-  resize(copyfrom.width(),copyfrom.height());
-}
-
-template <class T>
-template <class U>
-array2d<T>::array2d(const array2d<U> &copyfrom){
-  *this=array2d();
-  copyprops(copyfrom);
-}
-
-template <class T>
-void array2d<T>::init(T val){
-  #pragma omp parallel for
-  for(int x=0;x<width();x++)
-  for(int y=0;y<height();y++)
-    operator()(x,y)=val;
-}
-
-template <> inline long array2d<float>::estimated_output_size(){
-  return 9*this->width()*this->height();
-}
-template <> inline long array2d<char>::estimated_output_size(){
-  return 4*this->width()*this->height();
-}
-template <> inline long array2d<bool>::estimated_output_size(){
-  return 2*this->width()*this->height();
-}
-template <> inline long array2d<unsigned int>::estimated_output_size(){
-  return 9*this->width()*this->height();
-}
-
-template <class T>
-bool array2d<T>::operator==(const array2d<T> &other) const {
-  if(width()!=other.width() || height()!=other.height())
-    return false; 
-  for(int x=0;x<width();x++)
-  for(int y=0;y<height();y++)
-    if(operator()(x,y)!=other(x,y))
-      return false;
-  return true;
-}
-
-
-
-
-typedef array2d<double>       double_2d;
-typedef array2d<float>        float_2d;
-typedef array2d<signed char>  char_2d;
-typedef array2d<char>         bool_2d;
-typedef array2d<unsigned int> uint_2d;
-typedef array2d<int>          int_2d;
-
+#include <cmath>
 
 /// Stores the (x,y) coordinates of a grid cell
 class grid_cell {
@@ -160,55 +29,57 @@ class grid_cell {
 
 
 /// Stores the (x,y,z) coordinates of a grid cell; useful for priority sorting
-/// with \ref grid_cellz_compare
-/// @todo z-coordinate should be templated
+/// with \ref grid_cellz_compare.
+template<class elev_t>
 class grid_cellz : public grid_cell {
   public:
-    float z;         ///< Grid cell's z-coordinate
-    grid_cellz(int x, int y, float z): grid_cell(x,y), z(z) {}
+    elev_t z;         ///< Grid cell's z-coordinate
+    grid_cellz(int x, int y, elev_t z): grid_cell(x,y), z(z) {}
     grid_cellz(){}
-    bool operator< (const grid_cellz& a) const { return z< a.z; }
-    bool operator> (const grid_cellz& a) const { return z> a.z; }
-    bool operator>=(const grid_cellz& a) const { return z>=a.z; }
-    bool operator<=(const grid_cellz& a) const { return z<=a.z; }
-    bool operator==(const grid_cellz& a) const { return z==a.z; }
-    bool operator!=(const grid_cellz& a) const { return !operator==(a); }
+    bool operator< (const grid_cellz& a) const { return ( isnan(z) && !isnan(a.z)) || z< a.z; }
+    bool operator> (const grid_cellz& a) const { return (!isnan(z) &&  isnan(a.z)) || z> a.z; }
+    bool operator>=(const grid_cellz& a) const { return ( isnan(z) &&  isnan(a.z)) || (!isnan(z) &&  isnan(a.z)) || z>=a.z; }
+    bool operator<=(const grid_cellz& a) const { return ( isnan(z) &&  isnan(a.z)) || ( isnan(z) && !isnan(a.z)) || z<=a.z; }
+    bool operator==(const grid_cellz& a) const { return ( isnan(z) &&  isnan(a.z)) || z==a.z; }
+    bool operator!=(const grid_cellz& a) const { return !(isnan(z) &&  isnan(a.z)) && z!=a.z; }
 };
 
 
 
 /// Stores the (x,y,z) coordinates of a grid cell and a priority indicator k;
-/// used by grid_cellz_pq
-/// @todo z-coordinate should be templated
-class grid_cellzk : public grid_cellz {
+/// used by grid_cellz_pq.
+template<class elev_t>
+class grid_cellzk : public grid_cellz<elev_t> {
   public:
     int k;           ///< Used to store an integer to make sorting stable
-    grid_cellzk(int x, int y, float z, int k): grid_cellz(x,y,z), k(k) {}
+    grid_cellzk(int x, int y, elev_t z, int k): grid_cellz<elev_t>(x,y,z), k(k) {}
     grid_cellzk(){}
-    bool operator< (const grid_cellzk& a) const { return z< a.z || (z==a.z && k<a.k); }
-    bool operator> (const grid_cellzk& a) const { return z> a.z || (z==a.z && k>a.k); }
+    bool operator< (const grid_cellzk<elev_t>& a) const { return grid_cellz<elev_t>::z< a.z || ( isnan(grid_cellz<elev_t>::z) && !isnan(a.z)) || (grid_cellz<elev_t>::z==a.z && k<a.k) || (isnan(grid_cellz<elev_t>::z) && isnan(a.z) && k<a.k); }
+    bool operator> (const grid_cellzk<elev_t>& a) const { return grid_cellz<elev_t>::z> a.z || (!isnan(grid_cellz<elev_t>::z) &&  isnan(a.z)) || (grid_cellz<elev_t>::z==a.z && k>a.k) || (isnan(grid_cellz<elev_t>::z) && isnan(a.z) && k>a.k); }
 };
 
 ///A priority queue of grid_cells, sorted by ascending height
-class grid_cellz_pq : public std::priority_queue<grid_cellz, std::vector<grid_cellz>, std::greater<grid_cellz> > {
+template<class elev_t>
+class grid_cellz_pq : public std::priority_queue<grid_cellz<elev_t>, std::vector<grid_cellz<elev_t> >, std::greater<grid_cellz<elev_t> > > {
   public:
-    void push_cell(int x, int y, float z){
-      std::priority_queue<grid_cellz, std::vector<grid_cellz>, std::greater<grid_cellz> >::push(grid_cellz(x,y,z));
+    void push_cell(int x, int y, elev_t z){
+      std::priority_queue<grid_cellz<elev_t>, std::vector<grid_cellz<elev_t> >, std::greater<grid_cellz<elev_t> > >::push(grid_cellz<elev_t>(x,y,z));
     }
 };
 
 ///A priority queue of grid_cells, sorted by ascending height or, if heights
 ///are equal, by the order of insertion
-class grid_cellzk_pq : public std::priority_queue<grid_cellzk, std::vector<grid_cellzk>, std::greater<grid_cellzk> > {
+template<class elev_t>
+class grid_cellzk_pq : public std::priority_queue<grid_cellzk<elev_t>, std::vector<grid_cellzk<elev_t> >, std::greater<grid_cellzk<elev_t> > > {
   private:
     int count;
   public:
     grid_cellzk_pq() : count(0) {}
-    void push(const grid_cellz &a){
-      std::priority_queue<grid_cellzk, std::vector<grid_cellzk>, std::greater<grid_cellzk> >::push(grid_cellzk(a.x,a.y,a.z,count++));
+    void push(const grid_cellz<elev_t> &a){
+      std::priority_queue<grid_cellzk<elev_t>, std::vector<grid_cellzk<elev_t> >, std::greater<grid_cellzk<elev_t> > >::push(grid_cellzk<elev_t>(a.x,a.y,a.z,count++));
     }
-    void push_cell(int x, int y, float z){
-      std::priority_queue<grid_cellzk, std::vector<grid_cellzk>, std::greater<grid_cellzk> >::push(grid_cellzk(x,y,z,count++));
+    void push_cell(int x, int y, elev_t z){
+      std::priority_queue<grid_cellzk<elev_t>, std::vector<grid_cellzk<elev_t> >, std::greater<grid_cellzk<elev_t> > >::push(grid_cellzk<elev_t>(x,y,z,count++));
     }
 };
 
