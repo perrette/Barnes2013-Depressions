@@ -89,3 +89,19 @@ Notes on the Manuscript
 Work by Cris Luengo on the speed of various priority queue algorithms is
 discussed in the manuscript. His website providing code for his
 implementatations is [here](http://www.cb.uu.se/~cris/priorityqueues.html).
+
+
+Python bindings
+===============
+Algorithm 5 can be used from python. First install the related python package:
+
+    python setup.py install 
+
+Example of use:
+
+    # assume z has been loaded to disk, with single precision (__f__loat, not __d__ouble)
+    # if necessary: z = np.asarray(z, dtype='f')
+    # if nans are present: z[np.isnan(z)] = 0  
+
+    import priority_flood
+    labels = priority_flood.watersheds(z, missing_value=0)
