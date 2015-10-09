@@ -1,8 +1,9 @@
 // Wrapper around functions so that it can be called from python.
 
+#include "Array2D.hpp"
 #include "utility.h"
 #include "data_structures.h"
-#include "data_io.h"
+// #include "data_io.h"
 #include "priority_flood.hpp"
 #include <cstdio>
 #include <string>
@@ -11,16 +12,12 @@
 
 using namespace std;
 
-// initialize an array2d based from a pointer to array
+// initialize an Array2D based from a pointer to array
 template <class T>
-void wrap_array(int Mx, int My, T *arr, array2d<T> &arr_intern, T missing_value) {
-    // some dummy values that should have no influence on the program
-    arr_intern.xllcorner = 0;
-    arr_intern.yllcorner = 0;
-    arr_intern.cellsize = 1;
-    arr_intern.no_data = missing_value;
+void wrap_array(int Mx, int My, T *arr, Array2D<T> &arr_intern, T missing_value) {
     // allocate size
-    arr_intern.resize(Mx, My); 
+    arr_intern.resize(Mx, My, arr[0]); 
+    arr_intern.setNoData(missing_value);
     // copy elements
     for (int i=0; i<Mx; i++) {
         for (int j=0; j<My; j++) {
@@ -31,7 +28,7 @@ void wrap_array(int Mx, int My, T *arr, array2d<T> &arr_intern, T missing_value)
 
 // copy an array 2-D back to our pointer of floats
 template <class T>
-void unwrap_array(int Mx, int My, T *arr, array2d<T> &arr_intern) {
+void unwrap_array(int Mx, int My, T *arr, Array2D<T> &arr_intern) {
     // copy elements
     for (int i=0; i<Mx; i++) {
         for (int j=0; j<My; j++) {
@@ -42,8 +39,8 @@ void unwrap_array(int Mx, int My, T *arr, array2d<T> &arr_intern) {
 
 int priority_flood_watersheds_wrapper(int Mx, int My, float *elevation, int *labels, float missing_value) {
 
-    float_2d elev_intern;
-    int_2d lab_intern;
+    Array2D<float> elev_intern;
+    Array2D<int> lab_intern;
 
     // copy 2-D array to internal data structure
     // NOTE: a pointer like in PISM regional tools could simplify things
