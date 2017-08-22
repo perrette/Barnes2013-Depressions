@@ -16,6 +16,8 @@
 #include <queue>
 #include <cmath>
 
+using std::isnan;
+
 /// Stores the (x,y) coordinates of a grid cell
 class grid_cell {
   public:
